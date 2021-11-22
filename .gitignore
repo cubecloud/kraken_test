@@ -8,6 +8,7 @@
 
 #Project data files
 /data.lnk
+/test_task.pdf
 
 # Other project data
 .env

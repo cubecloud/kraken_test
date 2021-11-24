@@ -9,6 +9,7 @@
 #Project data files
 /data.lnk
 /test_task.pdf
+/pairs_data/*.*
 
 # Other project data
 .env
@@ -143,6 +144,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
 
 
 

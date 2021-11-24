@@ -39,7 +39,14 @@ dependencies:
   - schedule>=1.1.0
   - ipywidgets
   - sqlite
+  - yarl==1.6.3
+  - pycares>=4.0.0
+  - aiodns
+  - sqlalchemy
+  - flask
+  - flask-restful
   - pip:
     - python-binance~=1.0.15
     - datetimerange>=1.0.0
+    - ccxt
 prefix: /home/cubecloud/anaconda3/envs/kraken-dev

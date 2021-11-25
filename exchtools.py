@@ -6,7 +6,7 @@ import pytz
 import ccxt
 import pandas as pd
 from tqdm import tqdm
-from flask import Flask, jsonify
+from flask import Flask, jsonify , make_response
 from flask_restful import Api, Resource
 from typing import Tuple
 from secure import Secure
@@ -16,7 +16,7 @@ from sqlalchemy import Column, Integer, String, Float, create_engine, ForeignKey
 
 from dotenv import load_dotenv, find_dotenv
 
-__version__ = 0.00015
+__version__ = 0.00017
 
 
 app = Flask(__name__)
@@ -24,32 +24,25 @@ api = Api(app)
 
 
 class CryptoAPI(Resource):
-    def __init__(self):
-        self.pairs_symbols = ['BTC/USD',
-                              'ETH/USD',
-                              'XRP/EUR',
-                              'XRP/USD',
-                                      ]
-        self.frames = ['1h']
-        self.exchtools = ExchTools(pairs_symbols=pairs_symbols, timeframes=frames)
+    def __init__(self, **kwargs):
+        self.exchtools = kwargs['exchange']
+        self.refined_pairs = [re.sub('\W+','', pair) for pair in self.exchtools.pairs_symbols]
         pass
 
     def get(self, symbol: str):
-        if symbol == "btcusd":
-            results = self.exchtools.get_day_high_low("BTC/USD")
-        elif symbol == "ethusd":
-            results = self.exchtools.get_day_high_low("ETH/USD")
-        elif symbol == "xrpeur":
-            results = self.exchtools.get_day_high_low("XRP/EUR")
-        elif symbol == "xrpusd":
-            results = self.exchtools.get_day_high_low("XRP/USD")
+        if symbol.upper() in self.refined_pairs:
+            idx = self.refined_pairs.index(symbol.upper())
+            results = self.exchtools.get_day_high_low(self.exchtools.pairs_symbols[idx])
+        elif symbol == "refresh":
+            self.exchtools.refresh_data()
+            return make_response(jsonify({'Ok.': f'{self.exchtools.pairs_symbols} refreshed'}), 200)
         else:
-            return self.page_not_found(404)
-        return jsonify(results)
+            return self.page_not_found()
+        return make_response(jsonify(results), 200)
 
     @app.errorhandler(404)
     def page_not_found(self):
-        return "<h1>404</h1><p>The resource could not be found.</p>", 404
+        return make_response(jsonify({'error': 'Not found'}), 404)
 
 
 class ExchTools:
@@ -377,7 +370,7 @@ class ExchTools:
                                                            )
         """ Checking timeframes_qty """
         if timeframes_qty > 1:
-            print(f'Loading timeframes qty: {timeframes_qty}')
+            print(f'{symbol} loading timeframes qty: {timeframes_qty}')
             start_date = frames_list[1].strftime(self.datetime_format)
             since = self.exchange.parse8601(start_date)
             _data = self.__get_chunk_OHLCV(symbol, timeframe, since, limit=timeframes_qty)
@@ -394,6 +387,13 @@ class ExchTools:
                           if_exists='append',
                           dtype=self.ohlcv_dtypes
                           )
+        pass
+
+    def refresh_symbol(self, symbol, timeframe):
+        if self.db_base_exist:
+            self.check_and_load(symbol, timeframe)
+        else:
+            self.ohlcv_to_sql(symbol, timeframe)
         pass
 
     def refresh_data(self):
@@ -459,7 +459,7 @@ if __name__ == '__main__':
                      ]
     frames = ['1h']
     exchtools = ExchTools(pairs_symbols, frames)
-    api.add_resource(CryptoAPI, "/<string:symbol>")
+    api.add_resource(CryptoAPI, "/<string:symbol>", resource_class_kwargs={'exchange': exchtools})
     app.run(debug=True)
 
 
